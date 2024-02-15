@@ -10,9 +10,9 @@ app = FastAPI()
 
 @app.get("/testDatabase/")
 async def databaseConnectionTest():
-    query = "SELECT $1::text as message"
+    query = "SELECT 'Database connected'"
     with engine.connect() as connection:
-        result = connection.execute(text(query), "Database connected !")
+        result = connection.execute(text(query))
         return {"message": result.fetchone()["message"]}
 
 @app.get("/", tags=["Root"])
