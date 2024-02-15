@@ -1,6 +1,26 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
+DATABASE_URL = "postgres://njdlvhfb:N-FKIzCaqMpe4X8vVXWHQ0JjeQZ_UcK2@baasu.db.elephantsql.com/njdlvhfb"
+
+# SQLAlchemy
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+@app.get("/testDatabase/")
+async def databaseConnectionTest():
+    query = "SELECT $1::text as message"
+    with engine.connect() as connection:
+        result = connection.execute(text(query), "Database connected !")
+        return {"message": result.fetchone()["message"]}
 
 @app.get("/", tags=["Root"])
 async def serverUp():
