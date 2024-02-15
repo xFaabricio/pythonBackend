@@ -10,7 +10,7 @@ app = FastAPI()
 
 @app.get("/testDatabase/")
 async def databaseConnectionTest():
-    query = "SELECT login from sh_user su where login = 'MASTER';"
+    query = "SELECT 'Database connected !' as message"  # Corrigido para retornar a mensagem desejada
     with engine.connect() as connection:
         result = connection.execute(text(query))
         return {"message": result.fetchone()["message"]}
