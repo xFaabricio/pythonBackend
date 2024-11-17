@@ -51,9 +51,9 @@ def get_db():
         db.close()
 
 # Função para validar a senha
-def validate_password(db, password: str):
-    query = "SELECT * FROM parameters WHERE key = 'BACKEND_PASSWORD' AND enable = TRUE"
-    result = db.execute(text(query)).fetchone()
+def validate_password(db: Session, password: str):
+    query = text("SELECT * FROM parameters WHERE key = :key AND enable = TRUE")
+    result = db.execute(query, {"key": "BACKEND_PASSWORD"}).fetchone()  # Passando o valor como parâmetro
     if result and result["value"] == password:
         return True
     return False
