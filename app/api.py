@@ -47,9 +47,8 @@ async def start_app(app_name: str):
     """Start a Heroku app by its name"""
     url = f"https://api.heroku.com/apps/{app_name}/formation/web"
     data = {
-        "updates": [
-            {"type": "web", "quantity": 1}
-        ]
+        "type": "web",
+        "quantity": 1  # Para iniciar o dyno
     }
 
     # Enviando a requisição PATCH
@@ -67,9 +66,8 @@ async def stop_app(app_name: str):
     """Stop a Heroku app by its name"""
     url = f"https://api.heroku.com/apps/{app_name}/formation/web"
     data = {
-        "updates": [
-            {"type": "web", "quantity": 0}
-        ]
+        "type": "web",
+        "quantity": 0  # Para parar o dyno
     }
 
     # Enviando a requisição PATCH para parar o dyno
