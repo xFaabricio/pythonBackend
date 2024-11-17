@@ -1,14 +1,16 @@
-from fastapi import FastAPI
-from sqlalchemy import create_engine, text
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
 import os
 import requests
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker, Session
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 HEROKU_API_TOKEN = os.getenv("HEROKU_API_TOKEN")
 
 # SQLAlchemy
 engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 app = FastAPI()
 
@@ -41,10 +43,29 @@ def custom_openapi():
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
-# Endpoint para iniciar o dyno
-@app.post("/start/{app_name}")
-async def start_app(app_name: str):
-    """Start a Heroku app by its name"""
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# Função para validar a senha
+def validate_password(db, password: str):
+    query = "SELECT * FROM parameters WHERE key = 'BACKEND_PASSWORD' AND enable = TRUE"
+    result = db.execute(text(query)).fetchone()
+    if result and result["value"] == password:
+        return True
+    return False
+
+# Endpoint para iniciar o dyno com validação de senha
+@app.post("/start/{app_name}/{password}")
+async def start_app(app_name: str, password: str, db: Session = Depends(get_db)):
+    """Start a Heroku app by its name if password is valid"""
+    # Verificando a senha
+    if not validate_password(db, password):
+        raise HTTPException(status_code=403, detail="Invalid password")
+
     url = f"https://api.heroku.com/apps/{app_name}/formation/web"
     data = {
         "type": "web",
@@ -57,13 +78,16 @@ async def start_app(app_name: str):
     if response.status_code == 200:
         return JSONResponse(content={"message": f"App {app_name} started successfully"}, status_code=200)
     else:
-        # Log do erro com a resposta completa
         return JSONResponse(content={"error": response.json(), "status_code": response.status_code}, status_code=response.status_code)
 
-# Endpoint para parar o dyno
-@app.post("/stop/{app_name}")
-async def stop_app(app_name: str):
-    """Stop a Heroku app by its name"""
+# Endpoint para parar o dyno com validação de senha
+@app.post("/stop/{app_name}/{password}")
+async def stop_app(app_name: str, password: str, db: Session = Depends(get_db)):
+    """Stop a Heroku app by its name if password is valid"""
+    # Verificando a senha
+    if not validate_password(db, password):
+        raise HTTPException(status_code=403, detail="Invalid password")
+
     url = f"https://api.heroku.com/apps/{app_name}/formation/web"
     data = {
         "type": "web",
@@ -76,7 +100,6 @@ async def stop_app(app_name: str):
     if response.status_code == 200:
         return JSONResponse(content={"message": f"App {app_name} stopped successfully"}, status_code=200)
     else:
-        # Log do erro com a resposta completa
         return JSONResponse(content={"error": response.json(), "status_code": response.status_code}, status_code=response.status_code)
 
 @app.get("/docs", include_in_schema=False)
