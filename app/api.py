@@ -1,12 +1,20 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, jsonify
 from sqlalchemy import create_engine, text
+import os
+import requests
 
-DATABASE_URL = "postgresql://njdlvhfb:N-FKIzCaqMpe4X8vVXWHQ0JjeQZ_UcK2@baasu.db.elephantsql.com/njdlvhfb"
+DATABASE_URL = os.getenv("DATABASE_URL")
+HEROKU_API_TOKEN = os.getenv("HEROKU_API_TOKEN")
 
 # SQLAlchemy
 engine = create_engine(DATABASE_URL)
 
 app = FastAPI()
+
+headers = {
+    "Authorization": f"Bearer {HEROKU_API_TOKEN}",  # Token de autenticação
+    "Accept": "application/vnd.heroku+json; version=3"  # Versão da API Heroku
+}
 
 @app.get("/testDatabase/")
 async def databaseConnectionTest():
@@ -31,6 +39,30 @@ def custom_openapi():
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
+# Endpoint para iniciar o dyno
+@app.route("/start/<app_name>", methods=["POST"])
+def start_app(app_name):
+    """Start a Heroku app by its name"""
+    url = f"https://api.heroku.com/apps/{app_name}/formation/web"
+    response = requests.patch(url, headers=headers, json={"updates": [{"type": "web", "quantity": 1}]})
+
+    if response.status_code == 200:
+        return jsonify({"message": f"App {app_name} started successfully"}), 200
+    else:
+        return jsonify({"error": f"Failed to start app {app_name}"}), response.status_code
+
+
+@app.route("/stop/<app_name>", methods=["POST"])
+def stop_app(app_name):
+    """Stop a Heroku app by its name"""
+    url = f"https://api.heroku.com/apps/{app_name}/formation/web"
+    response = requests.patch(url, headers=headers, json={"updates": [{"type": "web", "quantity": 0}]})
+
+    if response.status_code == 200:
+        return jsonify({"message": f"App {app_name} stopped successfully"}), 200
+    else:
+        return jsonify({"error": f"Failed to stop app {app_name}"}), response.status_code
+
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html():
     return get_swagger_ui_html(openapi_url="/openapi.json", title="Custom Swagger UI")
@@ -38,3 +70,4 @@ async def custom_swagger_ui_html():
 @app.get("/openapi.json", include_in_schema=False)
 async def get_custom_openapi():
     return custom_openapi()
+
