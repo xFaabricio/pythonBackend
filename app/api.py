@@ -13,8 +13,9 @@ engine = create_engine(DATABASE_URL)
 app = FastAPI()
 
 headers = {
-    "Authorization": f"Bearer {HEROKU_API_TOKEN}",  # Token de autenticação
-    "Accept": "application/vnd.heroku+json; version=3"  # Versão da API Heroku
+    "Authorization": f"Bearer {HEROKU_API_TOKEN}",
+    "Accept": "application/vnd.heroku+json; version=3",
+    "Content-Type": "application/json"
 }
 
 @app.get("/testDatabase/")
@@ -41,27 +42,44 @@ def custom_openapi():
     return app.openapi_schema
 
 # Endpoint para iniciar o dyno
-@app.post("/start/{app_name}")  # Corrigido para usar @app.post
+@app.post("/start/{app_name}")
 async def start_app(app_name: str):
     """Start a Heroku app by its name"""
     url = f"https://api.heroku.com/apps/{app_name}/formation/web"
-    response = requests.patch(url, headers=headers, json={"updates": [{"type": "web", "quantity": 1}]})
+    data = {
+        "updates": [
+            {"type": "web", "quantity": 1}
+        ]
+    }
+
+    # Enviando a requisição POST
+    response = requests.post(url, headers=headers, json=data)
 
     if response.status_code == 200:
         return JSONResponse(content={"message": f"App {app_name} started successfully"}, status_code=200)
     else:
-        return JSONResponse(content={"error": f"Failed to start app {app_name}"}, status_code=response.status_code)
+        # Log do erro com a resposta completa
+        return JSONResponse(content={"error": response.json(), "status_code": response.status_code}, status_code=response.status_code)
 
-@app.post("/stop/{app_name}")  # Corrigido para usar @app.post
+# Endpoint para parar o dyno
+@app.post("/stop/{app_name}")
 async def stop_app(app_name: str):
     """Stop a Heroku app by its name"""
     url = f"https://api.heroku.com/apps/{app_name}/formation/web"
-    response = requests.patch(url, headers=headers, json={"updates": [{"type": "web", "quantity": 0}]})
+    data = {
+        "updates": [
+            {"type": "web", "quantity": 0}
+        ]
+    }
+
+    # Enviando a requisição POST
+    response = requests.post(url, headers=headers, json=data)
 
     if response.status_code == 200:
         return JSONResponse(content={"message": f"App {app_name} stopped successfully"}, status_code=200)
     else:
-        return JSONResponse(content={"error": f"Failed to stop app {app_name}"}, status_code=response.status_code)
+        # Log do erro com a resposta completa
+        return JSONResponse(content={"error": response.json(), "status_code": response.status_code}, status_code=response.status_code)
 
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html():
