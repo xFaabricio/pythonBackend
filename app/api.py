@@ -162,10 +162,57 @@ async def test_email(password: str, db: Session = Depends(get_db)):
             "server_timezone": str(server_timezone)}
 
 
+# Endpoint para iniciar o dyno com validação de senha
+@app.post("/start/{app_name}/{password}")
+async def start_app(app_name: str, password: str, db: Session = Depends(get_db)):
+    """Start a Heroku app by its name if password is valid"""
+    # Verificando a senha
+    if not validate_password(db, password):
+        raise HTTPException(status_code=403, detail="Invalid password")
+
+    url = f"https://api.heroku.com/apps/{app_name}/formation/web"
+    data = {
+        "type": "web",
+        "quantity": 1  # Para iniciar o dyno
+    }
+
+    # Enviando a requisição PATCH
+    response = requests.patch(url, headers=headers, json=data)
+
+    if response.status_code == 200:
+        return JSONResponse(content={"message": f"App {app_name} started successfully"}, status_code=200)
+    else:
+        return JSONResponse(content={"error": response.json(), "status_code": response.status_code}, status_code=response.status_code)
+
+# Endpoint para parar o dyno com validação de senha
+@app.post("/stop/{app_name}/{password}")
+async def stop_app(app_name: str, password: str, db: Session = Depends(get_db)):
+    """Stop a Heroku app by its name if password is valid"""
+    # Verificando a senha
+    if not validate_password(db, password):
+        raise HTTPException(status_code=403, detail="Invalid password")
+
+    url = f"https://api.heroku.com/apps/{app_name}/formation/web"
+    data = {
+        "type": "web",
+        "quantity": 0  # Para parar o dyno
+    }
+
+    # Enviando a requisição PATCH para parar o dyno
+    response = requests.patch(url, headers=headers, json=data)
+
+    if response.status_code == 200:
+        return JSONResponse(content={"message": f"App {app_name} stopped successfully"}, status_code=200)
+    else:
+        return JSONResponse(content={"error": response.json(), "status_code": response.status_code}, status_code=response.status_code)
+
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html():
     return get_swagger_ui_html(openapi_url="/openapi.json", title="Custom Swagger UI")
 
+@app.get("/openapi.json", include_in_schema=False)
+async def get_custom_openapi():
+    return custom_openapi()
 
 def custom_openapi():
     if app.openapi_schema:
@@ -178,3 +225,7 @@ def custom_openapi():
     )
     app.openapi_schema = openapi_schema
     return app.openapi_schema
+
+@app.get("/", tags=["Root"])
+async def serverUp():
+    return {"serverUp": "Server running !!"}
