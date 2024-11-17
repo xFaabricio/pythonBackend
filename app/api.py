@@ -9,6 +9,8 @@ from email.mime.multipart import MIMEMultipart
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
+from datetime import datetime
+import pytz
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 HEROKU_API_TOKEN = os.getenv("HEROKU_API_TOKEN")
@@ -230,8 +232,8 @@ def stop_app_email(app_name, db: Session):
 scheduler = BackgroundScheduler()
 
 # Agendando o start
-scheduler.add_job(start_app_email, 'cron', hour=17, minute=0, args=["paradise-system", Depends(get_db)])
-scheduler.add_job(start_app_email, 'cron', hour=17, minute=0, args=["msv-sevenheads", Depends(get_db)])
+scheduler.add_job(start_app_email, 'cron', hour=8, minute=0, args=["paradise-system", Depends(get_db)])
+scheduler.add_job(start_app_email, 'cron', hour=8, minute=0, args=["msv-sevenheads", Depends(get_db)])
 
 # Agendando o stop
 scheduler.add_job(stop_app_email, 'cron', hour=18, minute=0, args=["paradise-system", Depends(get_db)])
@@ -239,3 +241,41 @@ scheduler.add_job(stop_app_email, 'cron', hour=18, minute=0, args=["msv-sevenhea
 
 # Iniciando o agendador
 scheduler.start()
+
+@app.post("/test-email/{password}")
+async def test_email(password: str, db: Session = Depends(get_db)):
+    """
+    Endpoint para testar o envio de e-mails.
+    Também verifica o fuso horário do servidor.
+    """
+    # Validação da senha
+    if not validate_password(db, password):
+        raise HTTPException(status_code=403, detail="Invalid password")
+
+    # Obter o e-mail de destino do banco de dados
+    email_recipient = get_parameter(db, "EMAIL_JOB")
+    if not email_recipient:
+        raise HTTPException(status_code=400, detail="E-mail de destino não configurado no banco de dados.")
+
+    # Determinar o horário e o fuso horário do servidor
+    server_time = datetime.now()
+    server_timezone = datetime.now().astimezone().tzinfo  # Timezone configurado no servidor
+
+    # Enviar e-mail de teste
+    try:
+        send_email(
+            subject="Teste de E-mail",
+            body=(
+                "Este é um e-mail de teste enviado pelo sistema.\n\n"
+                f"Horário atual do servidor: {server_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                f"Fuso horário do servidor: {server_timezone}\n"
+            ),
+            to_email=email_recipient
+        )
+        return {
+            "message": f"E-mail enviado com sucesso para {email_recipient}.",
+            "server_time": server_time.strftime('%Y-%m-%d %H:%M:%S'),
+            "server_timezone": str(server_timezone)
+        }
+    except Exception as e:
+        return {"error": f"Falha ao enviar e-mail: {e}"}
