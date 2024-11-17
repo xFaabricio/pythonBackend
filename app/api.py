@@ -1,5 +1,6 @@
-from fastapi import FastAPI, jsonify
+from fastapi import FastAPI
 from sqlalchemy import create_engine, text
+from fastapi.responses import JSONResponse
 import os
 import requests
 
@@ -40,28 +41,27 @@ def custom_openapi():
     return app.openapi_schema
 
 # Endpoint para iniciar o dyno
-@app.route("/start/<app_name>", methods=["POST"])
-def start_app(app_name):
+@app.post("/start/{app_name}")  # Corrigido para usar @app.post
+async def start_app(app_name: str):
     """Start a Heroku app by its name"""
     url = f"https://api.heroku.com/apps/{app_name}/formation/web"
     response = requests.patch(url, headers=headers, json={"updates": [{"type": "web", "quantity": 1}]})
 
     if response.status_code == 200:
-        return jsonify({"message": f"App {app_name} started successfully"}), 200
+        return JSONResponse(content={"message": f"App {app_name} started successfully"}, status_code=200)
     else:
-        return jsonify({"error": f"Failed to start app {app_name}"}), response.status_code
+        return JSONResponse(content={"error": f"Failed to start app {app_name}"}, status_code=response.status_code)
 
-
-@app.route("/stop/<app_name>", methods=["POST"])
-def stop_app(app_name):
+@app.post("/stop/{app_name}")  # Corrigido para usar @app.post
+async def stop_app(app_name: str):
     """Stop a Heroku app by its name"""
     url = f"https://api.heroku.com/apps/{app_name}/formation/web"
     response = requests.patch(url, headers=headers, json={"updates": [{"type": "web", "quantity": 0}]})
 
     if response.status_code == 200:
-        return jsonify({"message": f"App {app_name} stopped successfully"}), 200
+        return JSONResponse(content={"message": f"App {app_name} stopped successfully"}, status_code=200)
     else:
-        return jsonify({"error": f"Failed to stop app {app_name}"}), response.status_code
+        return JSONResponse(content={"error": f"Failed to stop app {app_name}"}, status_code=response.status_code)
 
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html():
