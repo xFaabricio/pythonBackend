@@ -52,8 +52,8 @@ async def start_app(app_name: str):
         ]
     }
 
-    # Enviando a requisição POST
-    response = requests.post(url, headers=headers, json=data)
+    # Enviando a requisição PATCH
+    response = requests.patch(url, headers=headers, json=data)
 
     if response.status_code == 200:
         return JSONResponse(content={"message": f"App {app_name} started successfully"}, status_code=200)
@@ -72,8 +72,8 @@ async def stop_app(app_name: str):
         ]
     }
 
-    # Enviando a requisição POST
-    response = requests.post(url, headers=headers, json=data)
+    # Enviando a requisição PATCH para parar o dyno
+    response = requests.patch(url, headers=headers, json=data)
 
     if response.status_code == 200:
         return JSONResponse(content={"message": f"App {app_name} stopped successfully"}, status_code=200)
