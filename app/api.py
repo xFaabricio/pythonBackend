@@ -230,8 +230,8 @@ def stop_app_email(app_name, db: Session):
 scheduler = BackgroundScheduler()
 
 # Agendando o start
-scheduler.add_job(start_app_email, 'cron', hour=8, minute=0, args=["paradise-system", Depends(get_db)])
-scheduler.add_job(start_app_email, 'cron', hour=8, minute=0, args=["msv-sevenheads", Depends(get_db)])
+scheduler.add_job(start_app_email, 'cron', hour=17, minute=0, args=["paradise-system", Depends(get_db)])
+scheduler.add_job(start_app_email, 'cron', hour=17, minute=0, args=["msv-sevenheads", Depends(get_db)])
 
 # Agendando o stop
 scheduler.add_job(stop_app_email, 'cron', hour=18, minute=0, args=["paradise-system", Depends(get_db)])
