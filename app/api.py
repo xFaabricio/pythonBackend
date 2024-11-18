@@ -7,6 +7,7 @@ from email.mime.text import MIMEText
 
 import requests
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from databases import Database
@@ -156,13 +157,13 @@ def test_job():
 
 # Agendamento com APScheduler
 # Criação do scheduler
-scheduler = BackgroundScheduler(jobstores={'default': job_store})
+#scheduler = BackgroundScheduler(jobstores={'default': job_store})
+scheduler = AsyncIOScheduler(jobstores={'default': job_store})
 scheduler.add_job(test_job, "interval", minutes=2, timezone=LOCAL_TIMEZONE)
 scheduler.add_job(start_dyno, CronTrigger(hour=8, minute=0, second=0, timezone=LOCAL_TIMEZONE), args=["paradise-system", Depends(get_db)])
 scheduler.add_job(start_dyno, CronTrigger(hour=8, minute=0, second=0, timezone=LOCAL_TIMEZONE), args=["msv-sevenheads", Depends(get_db)])
 scheduler.add_job(stop_dyno, CronTrigger(hour=8, minute=0, second=0, timezone=LOCAL_TIMEZONE), args=["paradise-system", Depends(get_db)])
 scheduler.add_job(stop_dyno, CronTrigger(hour=8, minute=0, second=0, timezone=LOCAL_TIMEZONE), args=["msv-sevenheads", Depends(get_db)])
-
 
 @app.on_event("startup")
 async def startup():
