@@ -1,17 +1,22 @@
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
+from fastapi.openapi.utils import get_openapi
 import os
 import requests
 import smtplib
-from apscheduler.schedulers.background import BackgroundScheduler
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from datetime import datetime
-import pytz
 from pytz import timezone
+import logging
+
+# LOGGING
+logging.basicConfig(level=logging.INFO)
+logging.getLogger("apscheduler").setLevel(logging.DEBUG)
 
 # Configuração
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -27,7 +32,7 @@ app = FastAPI()
 headers = {
     "Authorization": f"Bearer {HEROKU_API_TOKEN}",
     "Accept": "application/vnd.heroku+json; version=3",
-    "Content-Type": "application/json"
+    "Content-Type": "application/json",
 }
 
 
@@ -77,71 +82,96 @@ def send_email(subject, body, to_email):
             server.starttls()
             server.login(smtp_username, smtp_password)
             server.sendmail(smtp_from, to_email, message.as_string())
-            print("E-mail enviado com sucesso.")
+            logging.info("E-mail enviado com sucesso.")
     except Exception as e:
-        print(f"Erro ao enviar o e-mail: {e}")
+        logging.error(f"Erro ao enviar o e-mail: {e}")
 
 
 # Função para iniciar o dyno
-def start_dyno(app_name: str, db: Session):
-    url = f"https://api.heroku.com/apps/{app_name}/formation/web"
-    data = {"type": "web", "quantity": 1}
+def start_dyno(app_name: str):
+    with SessionLocal() as db:
+        logging.info(f"Job executando: start_dyno para {app_name}")
+        url = f"https://api.heroku.com/apps/{app_name}/formation/web"
+        data = {"type": "web", "quantity": 1}
 
-    response = requests.patch(url, headers=headers, json=data)
-    email = get_parameter(db, "EMAIL_JOB")
+        response = requests.patch(url, headers=headers, json=data)
+        email = get_parameter(db, "EMAIL_JOB")
 
-    if response.status_code == 200:
-        message = f"O dyno da aplicação {app_name} foi iniciado com sucesso."
-        print(message)
-        if email:
-            send_email(f"App {app_name} Started", message, email)
-    else:
-        error = f"Erro ao iniciar o dyno da aplicação {app_name}: {response.json()}"
-        print(error)
-        if email:
-            send_email(f"App {app_name} Start Failed", error, email)
+        if response.status_code == 200:
+            message = f"O dyno da aplicação {app_name} foi iniciado com sucesso."
+            logging.info(message)
+            if email:
+                send_email(f"App {app_name} Started", message, email)
+        else:
+            error = f"Erro ao iniciar o dyno da aplicação {app_name}: {response.json()}"
+            logging.error(error)
+            if email:
+                send_email(f"App {app_name} Start Failed", error, email)
 
 
 # Função para parar o dyno
-def stop_dyno(app_name: str, db: Session):
-    url = f"https://api.heroku.com/apps/{app_name}/formation/web"
-    data = {"type": "web", "quantity": 0}
+def stop_dyno(app_name: str):
+    with SessionLocal() as db:
+        logging.info(f"Job executando: stop_dyno para {app_name}")
+        url = f"https://api.heroku.com/apps/{app_name}/formation/web"
+        data = {"type": "web", "quantity": 0}
 
-    response = requests.patch(url, headers=headers, json=data)
-    email = get_parameter(db, "EMAIL_JOB")
+        response = requests.patch(url, headers=headers, json=data)
+        email = get_parameter(db, "EMAIL_JOB")
 
-    if response.status_code == 200:
-        message = f"O dyno da aplicação {app_name} foi parado com sucesso."
-        print(message)
-        if email:
-            send_email(f"App {app_name} Stopped", message, email)
-    else:
-        error = f"Erro ao parar o dyno da aplicação {app_name}: {response.json()}"
-        print(error)
-        if email:
-            send_email(f"App {app_name} Stop Failed", error, email)
+        if response.status_code == 200:
+            message = f"O dyno da aplicação {app_name} foi parado com sucesso."
+            logging.info(message)
+            if email:
+                send_email(f"App {app_name} Stopped", message, email)
+        else:
+            error = f"Erro ao parar o dyno da aplicação {app_name}: {response.json()}"
+            logging.error(error)
+            if email:
+                send_email(f"App {app_name} Stop Failed", error, email)
+
+
+# Job de teste
+def test_job():
+    now = datetime.now(LOCAL_TIMEZONE)
+    logging.info(f"Test Job Executed at {now}")
 
 
 # Agendamento com APScheduler
 scheduler = BackgroundScheduler()
+scheduler.add_job(test_job, "interval", minutes=2, id="test_job")
+scheduler.add_job(start_dyno, "cron", hour=8, minute=0, args=["paradise-system"])
+scheduler.add_job(stop_dyno, "cron", hour=15, minute=35, args=["paradise-system"])
+scheduler.add_job(start_dyno, "cron", hour=8, minute=0, args=["msv-sevenheads"])
+scheduler.add_job(stop_dyno, "cron", hour=18, minute=0, args=["msv-sevenheads"])
 
-# Agendar start e stop para ambas as aplicações
-scheduler.add_job(start_dyno, 'cron', hour=8, minute=0, args=["paradise-system", Depends(get_db)])
-scheduler.add_job(start_dyno, 'cron', hour=8, minute=0, args=["msv-sevenheads", Depends(get_db)])
-scheduler.add_job(stop_dyno, 'cron', hour=15, minute=15, args=["paradise-system", Depends(get_db)])
-scheduler.add_job(stop_dyno, 'cron', hour=15, minute=15, args=["msv-sevenheads", Depends(get_db)])
 
-
-# Iniciar o agendador na inicialização da aplicação
 @app.on_event("startup")
 async def startup():
     scheduler.start()
-    scheduler.add_job(
-        stop_dyno,
-        CronTrigger(hour=15, minute=25, second=0),
-        args=["paradise-system", Depends(get_db)]
-    )
-    print("Scheduler iniciado")
+    logging.info("Scheduler iniciado.")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    scheduler.shutdown()
+    logging.info("Scheduler finalizado.")
+
+
+# Endpoint para listar jobs
+@app.get("/list-jobs")
+async def list_jobs():
+    jobs = scheduler.get_jobs()
+    return {
+        "jobs": [
+            {
+                "id": job.id,
+                "next_run_time": str(job.next_run_time),
+                "trigger": str(job.trigger),
+            }
+            for job in jobs
+        ]
+    }
 
 
 # Endpoint para testar envio de e-mail
@@ -152,85 +182,16 @@ async def test_email(password: str, db: Session = Depends(get_db)):
 
     email_recipient = get_parameter(db, "EMAIL_JOB")
     if not email_recipient:
-        raise HTTPException(status_code=400, detail="E-mail de destino não configurado no banco de dados.")
+        raise HTTPException(
+            status_code=400, detail="E-mail de destino não configurado no banco de dados."
+        )
 
-    server_time = datetime.now()
-    server_timezone = datetime.now().astimezone().tzinfo
+    server_time = datetime.now(LOCAL_TIMEZONE)
 
     send_email(
         subject="Teste de E-mail",
-        body=f"Horário atual do servidor: {server_time}\nFuso horário do servidor: {server_timezone}",
-        to_email=email_recipient
+        body=f"Horário atual do servidor: {server_time}",
+        to_email=email_recipient,
     )
 
-    return {"message": "E-mail de teste enviado com sucesso", "server_time": str(server_time),
-            "server_timezone": str(server_timezone)}
-
-
-# Endpoint para iniciar o dyno com validação de senha
-@app.post("/start/{app_name}/{password}")
-async def start_app(app_name: str, password: str, db: Session = Depends(get_db)):
-    """Start a Heroku app by its name if password is valid"""
-    # Verificando a senha
-    if not validate_password(db, password):
-        raise HTTPException(status_code=403, detail="Invalid password")
-
-    url = f"https://api.heroku.com/apps/{app_name}/formation/web"
-    data = {
-        "type": "web",
-        "quantity": 1  # Para iniciar o dyno
-    }
-
-    # Enviando a requisição PATCH
-    response = requests.patch(url, headers=headers, json=data)
-
-    if response.status_code == 200:
-        return JSONResponse(content={"message": f"App {app_name} started successfully"}, status_code=200)
-    else:
-        return JSONResponse(content={"error": response.json(), "status_code": response.status_code}, status_code=response.status_code)
-
-# Endpoint para parar o dyno com validação de senha
-@app.post("/stop/{app_name}/{password}")
-async def stop_app(app_name: str, password: str, db: Session = Depends(get_db)):
-    """Stop a Heroku app by its name if password is valid"""
-    # Verificando a senha
-    if not validate_password(db, password):
-        raise HTTPException(status_code=403, detail="Invalid password")
-
-    url = f"https://api.heroku.com/apps/{app_name}/formation/web"
-    data = {
-        "type": "web",
-        "quantity": 0  # Para parar o dyno
-    }
-
-    # Enviando a requisição PATCH para parar o dyno
-    response = requests.patch(url, headers=headers, json=data)
-
-    if response.status_code == 200:
-        return JSONResponse(content={"message": f"App {app_name} stopped successfully"}, status_code=200)
-    else:
-        return JSONResponse(content={"error": response.json(), "status_code": response.status_code}, status_code=response.status_code)
-
-@app.get("/docs", include_in_schema=False)
-async def custom_swagger_ui_html():
-    return get_swagger_ui_html(openapi_url="/openapi.json", title="Custom Swagger UI")
-
-@app.get("/openapi.json", include_in_schema=False)
-async def get_custom_openapi():
-    return custom_openapi()
-
-def custom_openapi():
-    if app.openapi_schema:
-        return app.openapi_schema
-    openapi_schema = get_openapi(
-        title="Custom Title",
-        version="2.5.0",
-        description="This is a very custom OpenAPI schema",
-        routes=app.routes,
-    )
-    app.openapi_schema = openapi_schema
-    return app.openapi_schema
-
-@app.get("/", tags=["Root"])
-async def serverUp():
-    return {"serverUp": "Server running !!"}
+    return {"message": "E-mail de teste enviado com sucesso", "server_time": str(server_time)}
