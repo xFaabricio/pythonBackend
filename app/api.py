@@ -268,6 +268,7 @@ async def disable_job(job_id: str, password: str, db: Session = Depends(get_db))
         raise HTTPException(status_code=404, detail="Job não encontrado.")
 
 
+
 # Função para adicionar os jobs ao scheduler
 def add_jobs():
     job_test = scheduler.add_job(test_job, "interval", minutes=2, timezone=LOCAL_TIMEZONE, id="job_test")
@@ -291,3 +292,33 @@ def add_jobs():
     # Adiciona os IDs dos jobs à lista
     job_ids = [job_test.id, job_start_paradise.id, job_start_msv.id, job_stop_paradise.id, job_stop_msv.id]
     logging.info(f"Jobs agendados: {job_ids}")
+
+@app.get("/", tags=["Root"])
+async def server_up():
+    return {"serverUp": "Server running !!"}
+
+
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(openapi_url="/openapi.json", title="Custom Swagger UI")
+
+
+@app.get("/openapi.json", include_in_schema=False)
+async def get_custom_openapi():
+    return custom_openapi()
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title="Custom Title",
+        version="2.5.0",
+        description="This is a very custom OpenAPI schema",
+        routes=app.routes,
+    )
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+# Fechar a sessão
+session = SessionLocal()
+session.close()
