@@ -25,15 +25,22 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 HEROKU_API_TOKEN = os.getenv("HEROKU_API_TOKEN")
 LOCAL_TIMEZONE = timezone("America/Sao_Paulo")
 
-# Configuração do SQLAlchemyJobStore
-jobstores = {
-    'default': SQLAlchemyJobStore(url=DATABASE_URL)
-}
+# Criação do job store
+job_store = SQLAlchemyJobStore(url=DATABASE_URL)
 
-# SQLAlchemy
+# Criação do engine e session maker
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-SQLAlchemyJobStore(url=DATABASE_URL).create_tables()
+
+# Instanciar a sessão
+session = SessionLocal()
+
+# Criar o job store e as tabelas
+job_store = SQLAlchemyJobStore(url=DATABASE_URL)
+job_store._create_jobs_table(session)  # Criando a tabela de jobs no banco de dados
+
+# Fechar a sessão
+session.close()
 
 app = FastAPI()
 
@@ -144,8 +151,8 @@ def test_job():
 
 
 # Agendamento com APScheduler
-# Criar o agendador
-scheduler = BackgroundScheduler(jobstores=jobstores)
+# Criação do scheduler
+scheduler = BackgroundScheduler(jobstores={'default': job_store})
 scheduler.add_job(test_job, "interval", minutes=2, id="test_job")
 scheduler.add_job(start_dyno, CronTrigger(hour=8, minute=0, second=0, timezone=LOCAL_TIMEZONE), args=["paradise-system", Depends(get_db)])
 scheduler.add_job(start_dyno, CronTrigger(hour=8, minute=0, second=0, timezone=LOCAL_TIMEZONE), args=["msv-sevenheads", Depends(get_db)])
