@@ -293,7 +293,7 @@ def add_jobs():
                                       id="job_start_msv",
                                       args=["msv-sevenheads"])
     job_stop_paradise = scheduler.add_job(stop_dyno_with_db,
-                                          CronTrigger(hour=18, minute=0, second=0, timezone=LOCAL_TIMEZONE),
+                                          CronTrigger(hour=16, minute=30, second=0, timezone=LOCAL_TIMEZONE),
                                           id="job_stop_paradise",
                                           args=["paradise-system"])
     job_stop_msv = scheduler.add_job(stop_dyno_with_db,
