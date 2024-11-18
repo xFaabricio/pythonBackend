@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.INFO)
 logging.getLogger("apscheduler").setLevel(logging.DEBUG)
 
 # Configuração
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = "postgresql://njdlvhfb:AWMBTa34BcHiiNOzLpTMkSj9mYMIEhjG@baasu.db.elephantsql.com/njdlvhfb"
 HEROKU_API_TOKEN = os.getenv("HEROKU_API_TOKEN")
 LOCAL_TIMEZONE = timezone("America/Sao_Paulo")
 
@@ -154,7 +154,7 @@ def test_job():
 # Agendamento com APScheduler
 # Criação do scheduler
 scheduler = BackgroundScheduler(jobstores={'default': job_store})
-scheduler.add_job(test_job, "interval", minutes=2, id="test_job")
+scheduler.add_job(test_job, "interval", minutes=2, timezone=LOCAL_TIMEZONE)
 scheduler.add_job(start_dyno, CronTrigger(hour=8, minute=0, second=0, timezone=LOCAL_TIMEZONE), args=["paradise-system", Depends(get_db)])
 scheduler.add_job(start_dyno, CronTrigger(hour=8, minute=0, second=0, timezone=LOCAL_TIMEZONE), args=["msv-sevenheads", Depends(get_db)])
 scheduler.add_job(stop_dyno, CronTrigger(hour=8, minute=0, second=0, timezone=LOCAL_TIMEZONE), args=["paradise-system", Depends(get_db)])
@@ -256,3 +256,7 @@ def custom_openapi():
     )
     app.openapi_schema = openapi_schema
     return app.openapi_schema
+
+# Fechar a sessão
+session = SessionLocal()
+session.close()
