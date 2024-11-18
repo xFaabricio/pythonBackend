@@ -109,19 +109,31 @@ def start_dyno(app_name: str, db: Session):
     url = f"https://api.heroku.com/apps/{app_name}/formation/web"
     data = {"type": "web", "quantity": 1}
 
-    response = requests.patch(url, headers=headers, json=data)
+    try:
+        response = requests.patch(url, headers=headers, json=data)
+    except requests.RequestException as e:
+        logging.error(f"Erro de conexão ao chamar a API Heroku: {e}")
+        return
+
+    send = bool(int(get_parameter(db, "SEND_EMAIL_JOB")))
     email = get_parameter(db, "EMAIL_JOB")
 
-    if response.status_code == 200:
-        message = f"O dyno da aplicação {app_name} foi iniciado com sucesso."
-        logging.info(message)
-        if email:
-            send_email(f"App {app_name} Started", message, email)
-    else:
-        error = f"Erro ao iniciar o dyno da aplicação {app_name}: {response.json()}"
-        logging.error(error)
-        if email:
-            send_email(f"App {app_name} Start Failed", error, email)
+    if send:
+        if response.status_code == 200:
+            message = f"O dyno da aplicação {app_name} foi iniciado com sucesso."
+            logging.info(message)
+            if email:
+                send_email(f"App {app_name} Started", message, email)
+        else:
+            error_details = (
+                response.json()
+                if response.headers.get("Content-Type") == "application/json"
+                else response.text
+            )
+            error = f"Erro ao iniciar o dyno da aplicação {app_name}: {error_details}"
+            logging.error(error)
+            if email:
+                send_email(f"App {app_name} Start Failed", error, email)
 
 
 # Função para parar o dyno
@@ -130,20 +142,31 @@ def stop_dyno(app_name: str, db: Session):
     url = f"https://api.heroku.com/apps/{app_name}/formation/web"
     data = {"type": "web", "quantity": 0}
 
-    response = requests.patch(url, headers=headers, json=data)
+    try:
+        response = requests.patch(url, headers=headers, json=data)
+    except requests.RequestException as e:
+        logging.error(f"Erro de conexão ao chamar a API Heroku: {e}")
+        return
+
+    send = bool(int(get_parameter(db, "SEND_EMAIL_JOB")))
     email = get_parameter(db, "EMAIL_JOB")
 
-    if response.status_code == 200:
-        message = f"O dyno da aplicação {app_name} foi parado com sucesso."
-        logging.info(message)
-        if email:
-            send_email(f"App {app_name} Stopped", message, email)
-    else:
-        error = f"Erro ao parar o dyno da aplicação {app_name}: {response.json()}"
-        logging.error(error)
-        if email:
-            send_email(f"App {app_name} Stop Failed", error, email)
-
+    if send:
+        if response.status_code == 200:
+            message = f"O dyno da aplicação {app_name} foi parado com sucesso."
+            logging.info(message)
+            if email:
+                send_email(f"App {app_name} Stopped", message, email)
+        else:
+            error_details = (
+                response.json()
+                if response.headers.get("Content-Type") == "application/json"
+                else response.text
+            )
+            error = f"Erro ao parar o dyno da aplicação {app_name}: {error_details}"
+            logging.error(error)
+            if email:
+                send_email(f"App {app_name} Stop Failed", error, email)
 
 # Job de teste
 def test_job():
