@@ -126,10 +126,10 @@ def stop_dyno(app_name: str, db: Session):
 scheduler = BackgroundScheduler(timezone=LOCAL_TIMEZONE)
 
 # Agendar start e stop para ambas as aplicações
-scheduler.add_job(start_dyno, 'cron', hour=8, minute=0, args=["paradise-system", Depends(get_db)])
-scheduler.add_job(start_dyno, 'cron', hour=8, minute=0, args=["msv-sevenheads", Depends(get_db)])
-scheduler.add_job(stop_dyno, 'cron', hour=18, minute=0, args=["paradise-system", Depends(get_db)])
-scheduler.add_job(stop_dyno, 'cron', hour=18, minute=0, args=["msv-sevenheads", Depends(get_db)])
+scheduler.add_job(start_dyno, 'cron', hour=8, minute=0, timezone=LOCAL_TIMEZONE, args=["paradise-system", Depends(get_db)])
+scheduler.add_job(start_dyno, 'cron', hour=8, minute=0, timezone=LOCAL_TIMEZONE, args=["msv-sevenheads", Depends(get_db)])
+scheduler.add_job(stop_dyno, 'cron', hour=12, minute=10, timezone=LOCAL_TIMEZONE, args=["paradise-system", Depends(get_db)])
+scheduler.add_job(stop_dyno, 'cron', hour=12, minute=10, timezone=LOCAL_TIMEZONE, args=["msv-sevenheads", Depends(get_db)])
 
 
 # Iniciar o agendador na inicialização da aplicação
