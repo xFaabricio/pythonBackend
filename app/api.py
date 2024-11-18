@@ -260,68 +260,30 @@ def custom_openapi():
 job_ids = []
 
 
-# Função para adicionar jobs ao scheduler
+# Função para envolver o job com a sessão de DB
+def start_dyno_with_db(app_name: str, db: Session = Depends(get_db)):
+    return start_dyno(app_name, db)
+
+def stop_dyno_with_db(app_name: str, db: Session = Depends(get_db)):
+    return stop_dyno(app_name, db)
+
+
+# Função para adicionar jobs ao scheduler com o db dependente
 def add_jobs():
-    # Adiciona os jobs que já estavam no seu código
+    # Usando funções de wrapper para passar a sessão de DB
     job_test = scheduler.add_job(test_job, "interval", minutes=2, timezone="America/Sao_Paulo")
-    job_start_paradise = scheduler.add_job(start_dyno,
+    job_start_paradise = scheduler.add_job(start_dyno_with_db,
                                            CronTrigger(hour=8, minute=0, second=0, timezone="America/Sao_Paulo"),
                                            args=["paradise-system"])
-    job_start_msv = scheduler.add_job(start_dyno, CronTrigger(hour=8, minute=0, second=0, timezone="America/Sao_Paulo"),
+    job_start_msv = scheduler.add_job(start_dyno_with_db,
+                                      CronTrigger(hour=8, minute=0, second=0, timezone="America/Sao_Paulo"),
                                       args=["msv-sevenheads"])
-    job_stop_paradise = scheduler.add_job(stop_dyno,
+    job_stop_paradise = scheduler.add_job(stop_dyno_with_db,
                                           CronTrigger(hour=18, minute=0, second=0, timezone="America/Sao_Paulo"),
                                           args=["paradise-system"])
-    job_stop_msv = scheduler.add_job(stop_dyno, CronTrigger(hour=18, minute=0, second=0, timezone="America/Sao_Paulo"),
+    job_stop_msv = scheduler.add_job(stop_dyno_with_db,
+                                     CronTrigger(hour=18, minute=0, second=0, timezone="America/Sao_Paulo"),
                                      args=["msv-sevenheads"])
 
     # Adiciona os IDs dos jobs à lista
     job_ids.extend([job_test.id, job_start_paradise.id, job_start_msv.id, job_stop_paradise.id, job_stop_msv.id])
-
-
-# Função para remover jobs do scheduler
-def remove_jobs():
-    for job_id in job_ids:
-        job = scheduler.get_job(job_id)
-        if job:
-            job.remove()
-
-
-# Endpoint para ativar os jobs
-@app.post("/activate-jobs/{password}")
-async def activate_jobs(password: str, db: Session = Depends(get_db)):
-    if not validate_password(db, password):
-        raise HTTPException(status_code=403, detail="Invalid password")
-
-    try:
-        # Verifica se os jobs já foram adicionados
-        if not scheduler.get_jobs():
-            add_jobs()
-            scheduler.start()  # Inicia o scheduler se os jobs ainda não foram iniciados
-            logging.info("Jobs ativados com sucesso.")
-            return {"message": "Jobs ativados com sucesso!"}
-        else:
-            return {"message": "Jobs já estão ativados."}
-    except Exception as e:
-        logging.error(f"Erro ao ativar jobs: {e}")
-        raise HTTPException(status_code=500, detail="Erro ao ativar jobs.")
-
-
-# Endpoint para desativar os jobs
-@app.post("/deactivate-jobs/{password}")
-async def deactivate_jobs(password: str, db: Session = Depends(get_db)):
-    if not validate_password(db, password):
-        raise HTTPException(status_code=403, detail="Invalid password")
-
-    try:
-        # Remove os jobs agendados
-        remove_jobs()
-        logging.info("Jobs desativados com sucesso.")
-        return {"message": "Jobs desativados com sucesso!"}
-    except Exception as e:
-        logging.error(f"Erro ao desativar jobs: {e}")
-        raise HTTPException(status_code=500, detail="Erro ao desativar jobs.")
-
-# Fechar a sessão
-session = SessionLocal()
-session.close()
