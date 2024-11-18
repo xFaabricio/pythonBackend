@@ -165,7 +165,7 @@ async def list_jobs():
         "jobs": [
             {
                 "id": job.id,
-                "next_run_time": str(job.next_run_time),
+                "next_run_time": str(job.next_run_time) if job.next_run_time else "Not scheduled",
                 "trigger": str(job.trigger),
             }
             for job in jobs
