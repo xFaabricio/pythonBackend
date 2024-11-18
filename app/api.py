@@ -30,16 +30,18 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 HEROKU_API_TOKEN = os.getenv("HEROKU_API_TOKEN")
 LOCAL_TIMEZONE = timezone("America/Sao_Paulo")
 
-# Criação do engine e session maker
+# Criação do engine e session
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Instanciando o job store com o SQLAlchemy
-job_store = SQLAlchemyJobStore(url=DATABASE_URL)
-
-# Criação da tabela de jobs (garante que as tabelas necessárias existam)
+# Criação da base
 Base = declarative_base()
-Base.metadata.create_all(engine)
+
+# Criar todas as tabelas no banco de dados
+Base.metadata.create_all(bind=engine)  # Este comando cria as tabelas no banco de dados
+
+# Inicializar o job store com o banco de dados
+job_store = SQLAlchemyJobStore(url=DATABASE_URL)
 
 app = FastAPI()
 
