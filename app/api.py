@@ -165,8 +165,8 @@ async def list_jobs():
         "jobs": [
             {
                 "id": job.id,
-                "next_run_time": str(job.next_run_time) if job.next_run_time else "Not scheduled",
-                "trigger": str(job.trigger),
+                "next_run_time": str(getattr(job, "next_run_time", None)) if getattr(job, "next_run_time", None) else "Not scheduled",  # Acesso seguro
+                "trigger": str(job.trigger) if hasattr(job, "trigger") else "Unknown trigger",  # Verificação de existência
             }
             for job in jobs
         ]
