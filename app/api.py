@@ -262,18 +262,22 @@ async def disable_job(job_id: str, password: str, db: Session = Depends(get_db))
 
 # Função para adicionar os jobs ao scheduler
 def add_jobs():
-    job_test = scheduler.add_job(test_job, "interval", minutes=2, timezone="America/Sao_Paulo")
+    job_test = scheduler.add_job(test_job, "interval", minutes=2, timezone=LOCAL_TIMEZONE, id="job_test")
     job_start_paradise = scheduler.add_job(start_dyno,
-                                           CronTrigger(hour=8, minute=0, second=0, timezone="America/Sao_Paulo"),
+                                           CronTrigger(hour=8, minute=0, second=0, timezone=LOCAL_TIMEZONE),
+                                           id="job_start_paradise",
                                            args=["paradise-system"])
     job_start_msv = scheduler.add_job(start_dyno,
-                                      CronTrigger(hour=8, minute=0, second=0, timezone="America/Sao_Paulo"),
+                                      CronTrigger(hour=8, minute=0, second=0, timezone=LOCAL_TIMEZONE),
+                                      id="job_start_msv",
                                       args=["msv-sevenheads"])
     job_stop_paradise = scheduler.add_job(stop_dyno,
-                                          CronTrigger(hour=18, minute=0, second=0, timezone="America/Sao_Paulo"),
+                                          CronTrigger(hour=18, minute=0, second=0, timezone=LOCAL_TIMEZONE),
+                                          id="job_stop_paradise",
                                           args=["paradise-system"])
     job_stop_msv = scheduler.add_job(stop_dyno,
-                                     CronTrigger(hour=18, minute=0, second=0, timezone="America/Sao_Paulo"),
+                                     CronTrigger(hour=18, minute=0, second=0, timezone=LOCAL_TIMEZONE),
+                                     id="job_stop_msv",
                                      args=["msv-sevenheads"])
 
     # Adiciona os IDs dos jobs à lista
