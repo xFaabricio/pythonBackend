@@ -15,6 +15,11 @@ from fastapi.openapi.utils import get_openapi
 from pytz import timezone
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from apscheduler.schedulers.background import BackgroundScheduler
+
 
 # LOGGING
 logging.basicConfig(level=logging.INFO)
@@ -25,22 +30,16 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 HEROKU_API_TOKEN = os.getenv("HEROKU_API_TOKEN")
 LOCAL_TIMEZONE = timezone("America/Sao_Paulo")
 
-# Criação do job store
-job_store = SQLAlchemyJobStore(url=DATABASE_URL)
-
 # Criação do engine e session maker
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Instanciar a sessão
-session = SessionLocal()
-
-# Criar o job store e as tabelas
+# Instanciando o job store com o SQLAlchemy
 job_store = SQLAlchemyJobStore(url=DATABASE_URL)
-job_store._create_jobs_table(session)  # Criando a tabela de jobs no banco de dados
 
-# Fechar a sessão
-session.close()
+# Criação da tabela de jobs (garante que as tabelas necessárias existam)
+Base = declarative_base()
+Base.metadata.create_all(engine)
 
 app = FastAPI()
 
