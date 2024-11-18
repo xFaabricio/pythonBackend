@@ -1,19 +1,20 @@
-from fastapi import FastAPI, HTTPException, Request, Depends
-from fastapi.responses import JSONResponse
-from fastapi.openapi.utils import get_openapi
-from fastapi.openapi.docs import get_swagger_ui_html
+import logging
 import os
-import requests
 import smtplib
-from email.mime.text import MIMEText
+from datetime import datetime
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
+import requests
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.openapi.utils import get_openapi
+from pytz import timezone
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
-from datetime import datetime
-from pytz import timezone
-import logging
 
 # LOGGING
 logging.basicConfig(level=logging.INFO)
@@ -24,9 +25,15 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 HEROKU_API_TOKEN = os.getenv("HEROKU_API_TOKEN")
 LOCAL_TIMEZONE = timezone("America/Sao_Paulo")
 
+# Configuração do SQLAlchemyJobStore
+jobstores = {
+    'default': SQLAlchemyJobStore(url=DATABASE_URL)
+}
+
 # SQLAlchemy
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SQLAlchemyJobStore(url=DATABASE_URL).create_tables()
 
 app = FastAPI()
 
@@ -137,12 +144,13 @@ def test_job():
 
 
 # Agendamento com APScheduler
-scheduler = BackgroundScheduler()
+# Criar o agendador
+scheduler = BackgroundScheduler(jobstores=jobstores)
 scheduler.add_job(test_job, "interval", minutes=2, id="test_job")
-scheduler.add_job(start_dyno, "cron", hour=8, minute=0, args=["paradise-system", Depends(get_db)])
-scheduler.add_job(stop_dyno, "cron", hour=18, minute=0, args=["paradise-system", Depends(get_db)])
-scheduler.add_job(start_dyno, "cron", hour=8, minute=0, args=["msv-sevenheads", Depends(get_db)])
-scheduler.add_job(stop_dyno, "cron", hour=18, minute=0, args=["msv-sevenheads", Depends(get_db)])
+scheduler.add_job(start_dyno, CronTrigger(hour=8, minute=0, second=0, timezone=LOCAL_TIMEZONE), args=["paradise-system", Depends(get_db)])
+scheduler.add_job(start_dyno, CronTrigger(hour=8, minute=0, second=0, timezone=LOCAL_TIMEZONE), args=["msv-sevenheads", Depends(get_db)])
+scheduler.add_job(stop_dyno, CronTrigger(hour=8, minute=0, second=0, timezone=LOCAL_TIMEZONE), args=["paradise-system", Depends(get_db)])
+scheduler.add_job(stop_dyno, CronTrigger(hour=8, minute=0, second=0, timezone=LOCAL_TIMEZONE), args=["msv-sevenheads", Depends(get_db)])
 
 
 @app.on_event("startup")
