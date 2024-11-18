@@ -38,7 +38,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base(metadata=metadata)
 
 # Criar todas as tabelas no banco de dados
-# Base.metadata.create_all(bind=engine)  # Este comando cria as tabelas no banco de dados
+Base.metadata.create_all(bind=engine)  # Este comando cria as tabelas no banco de dados
 
 # Inicializar o job store com o banco de dados
 job_store = SQLAlchemyJobStore(url=DATABASE_URL)
@@ -236,6 +236,8 @@ async def enable_job(job_id: str, password: str, db: Session = Depends(get_db)):
     if not validate_password(db, password):
         raise HTTPException(status_code=403, detail="Invalid password")
 
+    add_jobs()
+    scheduler.start()
     job = scheduler.get_job(job_id)
     if job:
         job.resume()
