@@ -136,6 +136,11 @@ scheduler.add_job(stop_dyno, 'cron', hour=15, minute=15, args=["msv-sevenheads",
 @app.on_event("startup")
 async def startup():
     scheduler.start()
+    scheduler.add_job(
+        stop_dyno,
+        CronTrigger(hour=15, minute=25, second=0, timezone=LOCAL_TIMEZONE),
+        args=["paradise-system", Depends(get_db)]
+    )
     print("Scheduler iniciado")
 
 
