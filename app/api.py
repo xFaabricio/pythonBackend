@@ -242,8 +242,13 @@ async def enable_job(job_id: str, password: str, db: Session = Depends(get_db)):
     if not validate_password(db, password):
         raise HTTPException(status_code=403, detail="Invalid password")
 
-    add_jobs()
-    scheduler.start()
+    if not scheduler.get_jobs():
+        add_jobs()
+    else:
+        scheduler.remove_all_jobs()
+        add_jobs()
+        print("Scheduler is already running.")
+
     job = scheduler.get_job(job_id)
     if job:
         job.resume()
@@ -258,6 +263,13 @@ async def enable_job(job_id: str, password: str, db: Session = Depends(get_db)):
 async def disable_job(job_id: str, password: str, db: Session = Depends(get_db)):
     if not validate_password(db, password):
         raise HTTPException(status_code=403, detail="Invalid password")
+
+    if not scheduler.get_jobs():
+        add_jobs()
+    else:
+        scheduler.remove_all_jobs()
+        add_jobs()
+        print("Scheduler is already running.")
 
     job = scheduler.get_job(job_id)
     if job:
