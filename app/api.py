@@ -171,7 +171,7 @@ async def shutdown():
 
 
 # Endpoint para listar jobs
-@app.get("/list-jobs")
+@app.get("/list-jobs", include_in_schema=False)
 async def list_jobs():
     jobs = scheduler.get_jobs()
     return {
@@ -190,7 +190,7 @@ async def list_jobs():
 
 
 # Endpoint para testar envio de e-mail
-@app.post("/test-email/{password}")
+@app.post("/test-email/{password}", include_in_schema=False)
 async def test_email(password: str, db: Session = Depends(get_db)):
     if not validate_password(db, password):
         raise HTTPException(status_code=403, detail="Invalid password")
@@ -237,7 +237,7 @@ async def stop_app(app_name: str, password: str, db: Session = Depends(get_db)):
 
 
 # Endpoint para ativar um job
-@app.post("/enable-job/{job_id}/{password}")
+@app.post("/enable-job/{job_id}/{password}", include_in_schema=False)
 async def enable_job(job_id: str, password: str, db: Session = Depends(get_db)):
     if not validate_password(db, password):
         raise HTTPException(status_code=403, detail="Invalid password")
@@ -259,7 +259,7 @@ async def enable_job(job_id: str, password: str, db: Session = Depends(get_db)):
 
 
 # Endpoint para desativar um job
-@app.post("/disable-job/{job_id}/{password}")
+@app.post("/disable-job/{job_id}/{password}", include_in_schema=False)
 async def disable_job(job_id: str, password: str, db: Session = Depends(get_db)):
     if not validate_password(db, password):
         raise HTTPException(status_code=403, detail="Invalid password")
