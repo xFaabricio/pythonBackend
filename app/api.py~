@@ -289,10 +289,10 @@ def remove_jobs():
 
 # Endpoint para ativar os jobs
 @app.post("/activate-jobs/{password}")
-async def activate_jobs(password: str, db: Session = Depends(get_db)):
+async def activate_jobs():
     if not validate_password(db, password):
         raise HTTPException(status_code=403, detail="Invalid password")
-
+    
     try:
         # Verifica se os jobs já foram adicionados
         if not scheduler.get_jobs():
@@ -309,7 +309,7 @@ async def activate_jobs(password: str, db: Session = Depends(get_db)):
 
 # Endpoint para desativar os jobs
 @app.post("/deactivate-jobs/{password}")
-async def deactivate_jobs(password: str, db: Session = Depends(get_db)):
+async def deactivate_jobs():
     if not validate_password(db, password):
         raise HTTPException(status_code=403, detail="Invalid password")
 
