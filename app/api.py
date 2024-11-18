@@ -42,7 +42,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base(metadata=metadata)
 
 # Criar todas as tabelas no banco de dados
-#Base.metadata.create_all(bind=engine)  # Este comando cria as tabelas no banco de dados
+# Base.metadata.create_all(bind=engine)  # Este comando cria as tabelas no banco de dados
 
 # Inicializar o job store com o banco de dados
 job_store = SQLAlchemyJobStore(url=DATABASE_URL)
@@ -159,6 +159,7 @@ def test_job():
 # Criação do scheduler
 scheduler = BackgroundScheduler(jobstores={'default': job_store})
 
+
 @app.on_event("startup")
 async def startup():
     scheduler.start()
@@ -179,8 +180,11 @@ async def list_jobs():
         "jobs": [
             {
                 "id": job.id,
-                "next_run_time": str(getattr(job, "next_run_time", None)) if getattr(job, "next_run_time", None) else "Not scheduled",  # Acesso seguro
-                "trigger": str(job.trigger) if hasattr(job, "trigger") else "Unknown trigger",  # Verificação de existência
+                "next_run_time": str(getattr(job, "next_run_time", None)) if getattr(job, "next_run_time",
+                                                                                     None) else "Not scheduled",
+                # Acesso seguro
+                "trigger": str(job.trigger) if hasattr(job, "trigger") else "Unknown trigger",
+                # Verificação de existência
             }
             for job in jobs
         ]
@@ -228,62 +232,52 @@ async def stop_app(app_name: str, password: str, db: Session = Depends(get_db)):
     return {"message": f"App {app_name} stopped successfully"}
 
 
-@app.get("/", tags=["Root"])
-async def server_up():
-    return {"serverUp": "Server running !!"}
+# Endpoint para ativar um job
+@app.post("/enable-job/{job_id}/{password}")
+async def enable_job(job_id: str, password: str, db: Session = Depends(get_db)):
+    if not validate_password(db, password):
+        raise HTTPException(status_code=403, detail="Invalid password")
+
+    job = scheduler.get_job(job_id)
+    if job:
+        job.resume()
+        logging.info(f"Job {job_id} ativado.")
+        return {"message": f"Job {job_id} ativado com sucesso."}
+    else:
+        raise HTTPException(status_code=404, detail="Job não encontrado.")
 
 
-@app.get("/docs", include_in_schema=False)
-async def custom_swagger_ui_html():
-    return get_swagger_ui_html(openapi_url="/openapi.json", title="Custom Swagger UI")
+# Endpoint para desativar um job
+@app.post("/disable-job/{job_id}/{password}")
+async def disable_job(job_id: str, password: str, db: Session = Depends(get_db)):
+    if not validate_password(db, password):
+        raise HTTPException(status_code=403, detail="Invalid password")
+
+    job = scheduler.get_job(job_id)
+    if job:
+        job.pause()
+        logging.info(f"Job {job_id} desativado.")
+        return {"message": f"Job {job_id} desativado com sucesso."}
+    else:
+        raise HTTPException(status_code=404, detail="Job não encontrado.")
 
 
-@app.get("/openapi.json", include_in_schema=False)
-async def get_custom_openapi():
-    return custom_openapi()
-
-
-def custom_openapi():
-    if app.openapi_schema:
-        return app.openapi_schema
-    openapi_schema = get_openapi(
-        title="Custom Title",
-        version="2.5.0",
-        description="This is a very custom OpenAPI schema",
-        routes=app.routes,
-    )
-    app.openapi_schema = openapi_schema
-    return app.openapi_schema
-
-
-# Lista para armazenar os IDs dos jobs
-job_ids = []
-
-
-# Função para envolver o job com a sessão de DB
-def start_dyno_with_db(app_name: str, db: Session = Depends(get_db)):
-    return start_dyno(app_name, db)
-
-def stop_dyno_with_db(app_name: str, db: Session = Depends(get_db)):
-    return stop_dyno(app_name, db)
-
-
-# Função para adicionar jobs ao scheduler com o db dependente
+# Função para adicionar os jobs ao scheduler
 def add_jobs():
-    # Usando funções de wrapper para passar a sessão de DB
     job_test = scheduler.add_job(test_job, "interval", minutes=2, timezone="America/Sao_Paulo")
-    job_start_paradise = scheduler.add_job(start_dyno_with_db,
+    job_start_paradise = scheduler.add_job(start_dyno,
                                            CronTrigger(hour=8, minute=0, second=0, timezone="America/Sao_Paulo"),
                                            args=["paradise-system"])
-    job_start_msv = scheduler.add_job(start_dyno_with_db,
+    job_start_msv = scheduler.add_job(start_dyno,
                                       CronTrigger(hour=8, minute=0, second=0, timezone="America/Sao_Paulo"),
                                       args=["msv-sevenheads"])
-    job_stop_paradise = scheduler.add_job(stop_dyno_with_db,
+    job_stop_paradise = scheduler.add_job(stop_dyno,
                                           CronTrigger(hour=18, minute=0, second=0, timezone="America/Sao_Paulo"),
                                           args=["paradise-system"])
-    job_stop_msv = scheduler.add_job(stop_dyno_with_db,
+    job_stop_msv = scheduler.add_job(stop_dyno,
                                      CronTrigger(hour=18, minute=0, second=0, timezone="America/Sao_Paulo"),
                                      args=["msv-sevenheads"])
 
     # Adiciona os IDs dos jobs à lista
-    job_ids.extend([job_test.id, job_start_paradise.id, job_start_msv.id, job_stop_paradise.id, job_stop_msv.id])
+    job_ids = [job_test.id, job_start_paradise.id, job_start_msv.id, job_stop_paradise.id, job_stop_msv.id]
+    logging.info(f"Jobs agendados: {job_ids}")
