@@ -7,20 +7,16 @@ from email.mime.text import MIMEText
 
 import requests
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from databases import Database
 from fastapi import FastAPI, HTTPException, Depends
-from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.openapi.utils import get_openapi
 from pytz import timezone
-from sqlalchemy import create_engine, text, MetaData
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
+from sqlalchemy import text, MetaData
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker
-from apscheduler.schedulers.background import BackgroundScheduler
 
 # LOGGING
 logging.basicConfig(level=logging.INFO)
@@ -159,11 +155,13 @@ def test_job():
 # Criação do scheduler
 scheduler = BackgroundScheduler(jobstores={'default': job_store})
 
-
+# Função de inicialização para o evento "startup"
 @app.on_event("startup")
 async def startup():
+    # Adiciona os jobs ao iniciar a aplicação
+    add_jobs()
     scheduler.start()
-    logging.info("Scheduler iniciado.")
+    logging.info("Scheduler iniciado e jobs agendados.")
 
 
 @app.on_event("shutdown")
