@@ -9,36 +9,39 @@ import requests
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from databases import Database
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from pytz import timezone
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, MetaData
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from apscheduler.schedulers.background import BackgroundScheduler
 
-
 # LOGGING
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("apscheduler").setLevel(logging.DEBUG)
 
 # Configuração
-DATABASE_URL = "postgresql://njdlvhfb:AWMBTa34BcHiiNOzLpTMkSj9mYMIEhjG@baasu.db.elephantsql.com/njdlvhfb"
+DATABASE_URL = os.getenv("DATABASE_URL")
 HEROKU_API_TOKEN = os.getenv("HEROKU_API_TOKEN")
 LOCAL_TIMEZONE = timezone("America/Sao_Paulo")
+
+database = Database(DATABASE_URL)
+metadata = MetaData()
 
 # Criação do engine e session
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Criação da base
-Base = declarative_base()
+Base = declarative_base(metadata=metadata)
 
 # Criar todas as tabelas no banco de dados
-Base.metadata.create_all(bind=engine)  # Este comando cria as tabelas no banco de dados
+#Base.metadata.create_all(bind=engine)  # Este comando cria as tabelas no banco de dados
 
 # Inicializar o job store com o banco de dados
 job_store = SQLAlchemyJobStore(url=DATABASE_URL)
